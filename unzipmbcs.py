@@ -25,6 +25,7 @@ import os
 import zipfile
 import zlib
 import argparse
+import getpass
 
 __version__ = '0.1.1'
 
@@ -50,12 +51,15 @@ def fixZipFilename(filename, enc):
     return result
 
 
-def _extractFileFromZip(z, fn, ofn):
+def _extractFileFromZip(z, fi, ofn):
     """
-    extract a file `fn` in ZipFile `z` as `ofn`
+    extract a file specified by ZipInfo `fi` in ZipFile `z` as `ofn`
     """
+    if fi.flag_bits & 0x1:
+        if not z.pwd:
+            z.setpassword(getpass.getpass())
     f = open(ofn, 'wb')
-    f.write(z.read(fn))
+    f.write(z.read(fi.filename))
     f.close()
 
 
@@ -67,8 +71,9 @@ def extractZip(filename, encoding='utf-8', filters=None):
     if `filters` are provided.
     """
     z = zipfile.ZipFile(filename, 'r')
-    l = z.namelist()
-    for fn in l:
+    il = z.infolist()
+    for fi in il:
+        fn = fi.filename
         if len(fn) == 0 or fn[-1] == '/':
             continue
         try:
@@ -86,7 +91,7 @@ def extractZip(filename, encoding='utf-8', filters=None):
             print(e)
             print('Continue to extract...')
         try:
-            _extractFileFromZip(z, fn, ofn)
+            _extractFileFromZip(z, fi, ofn)
         except IOError:
             # create directories
             l2 = ofn.split('/')
@@ -124,7 +129,7 @@ def listZip(filename, encoding='utf-8'):
 
 def _main():
     parser = argparse.ArgumentParser(
-        description='unzip for non-UTF8 filenames in zip archive')
+        description='unzip for non-UTF8 filenames in zip archive (mod)')
     parser.add_argument('cmd', help='commands: l(list), x(extract)')
     parser.add_argument('-e', '--encoding',
                         help='character encoding of filename in the .zip',
